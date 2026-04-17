@@ -15,7 +15,8 @@ const CODE_TO_METRIC: Record<string, { metric: string; unit: string }> = {
 };
 
 export async function fetchUsgsGauge(siteNo: string): Promise<Array<{ ts: string; metric: string; value: number; unit: string }>> {
-  const url = `https://waterservices.usgs.gov/nwis/iv/?format=json&sites=${siteNo}&parameterCd=00060,00065`;
+  const base = import.meta.env.DEV ? "/api-usgs" : "https://waterservices.usgs.gov";
+  const url = `${base}/nwis/iv/?format=json&sites=${siteNo}&parameterCd=00060,00065`;
   const data = await fetchJsonWithRetry<UsgsResponse>(url);
   const out: Array<{ ts: string; metric: string; value: number; unit: string }> = [];
   for (const series of data.value?.timeSeries || []) {

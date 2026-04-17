@@ -45,6 +45,10 @@ export interface TimeseriesPoint {
   value: number;
 }
 
+export interface TideTurningPoint extends TimeseriesPoint {
+  kind: "peak" | "trough";
+}
+
 export interface AppPayload {
   location: LocationConfig;
   generatedAtUtc: string;
@@ -57,6 +61,7 @@ export interface AppPayload {
     metric: string;
     unit: string;
     points: TimeseriesPoint[];
+    turningPoints?: TideTurningPoint[];
     nowTs: string;
   };
   sources: Array<{ name: string; url: string }>;

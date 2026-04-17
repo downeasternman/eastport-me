@@ -1,7 +1,8 @@
 import { fetchTextWithRetry } from "./http";
 
 export async function fetchNwsMarine(zoneId: string): Promise<{ hazardFlag: number; summary: string; ts: string }> {
-  const url = `https://forecast.weather.gov/shmrn.php?mz=${zoneId}&syn=anz005`;
+  const base = import.meta.env.DEV ? "/api-nws" : "https://forecast.weather.gov";
+  const url = `${base}/shmrn.php?mz=${zoneId}&syn=anz005`;
   const text = await fetchTextWithRetry(url);
   const lower = text.toLowerCase();
   const hazards = ["gale warning", "small craft advisory", "storm warning", "freezing spray advisory"];

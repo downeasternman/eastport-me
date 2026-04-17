@@ -40,6 +40,23 @@ function normalize(locationId, sourceStationId, metric, unit, points) {
   }));
 }
 
+function toChartPoints(readings) {
+  const observed = readings
+    .filter((r) => r.metric === "water_level_ft_mllw")
+    .map((r) => ({ ts: r.timestamp_utc, value: r.value, priority: 1 }));
+  const predicted = readings
+    .filter((r) => r.metric === "predicted_tide_ft_mllw")
+    .map((r) => ({ ts: r.timestamp_utc, value: r.value, priority: 2 }));
+  const merged = [...observed, ...predicted].sort((a, b) => {
+    const delta = Date.parse(a.ts) - Date.parse(b.ts);
+    if (delta !== 0) return delta;
+    return b.priority - a.priority;
+  });
+  const byTs = new Map();
+  for (const p of merged) byTs.set(p.ts, { ts: p.ts, value: p.value });
+  return Array.from(byTs.values()).sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+}
+
 function parseNdbcRows(text) {
   const lines = text.split(/\r?\n/).filter((x) => x.trim());
   const header = lines.find((line) => line.includes("YY") && line.includes("MM") && line.includes("DD"));
@@ -97,7 +114,13 @@ export async function buildPayload() {
     primary_metric: "water_level_ft_mllw",
     rules: "marine_eastport",
     tip_url: "https://ko-fi.com/",
-    contact_url: "https://github.com/downeasternman/eastport-me/issues"
+    contact_url: "https://github.com/downeasternman/eastport-me/issues",
+    seo: {
+      title: "Eastport ME Conditions Today | Boating, Fishing, Marine Forecast",
+      description:
+        "Eastport, Maine conditions today for boaters, fishermen, and tour operators. Live tides, winds, waves, water level, and marine hazard outlook.",
+      activity_keywords: ["boating Eastport ME", "fishing Eastport ME", "Eastport conditions today"]
+    }
   };
   const now = new Date();
   const begin = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -115,10 +138,15 @@ export async function buildPayload() {
     `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=waterapps&format=json` +
     `&time_zone=gmt&units=english&interval=h&datum=MLLW&station=8410140&begin_date=${encodeURIComponent(fmt(now))}` +
     `&end_date=${encodeURIComponent(fmt(end))}`;
+  const hiloUrl =
+    `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=waterapps&format=json` +
+    `&time_zone=gmt&units=english&interval=hilo&datum=MLLW&station=8410140&begin_date=${encodeURIComponent(fmt(begin))}` +
+    `&end_date=${encodeURIComponent(fmt(end))}`;
 
-  const [obs, pred, psbmTxt, buoyTxt, usgs, nwsTxt] = await Promise.all([
+  const [obs, pred, hilo, psbmTxt, buoyTxt, usgs, nwsTxt] = await Promise.all([
     fetchJsonWithRetry(obsUrl),
     fetchJsonWithRetry(predUrl),
+    fetchJsonWithRetry(hiloUrl),
     fetchTextWithRetry("https://www.ndbc.noaa.gov/data/realtime2/PSBM1.txt"),
     fetchTextWithRetry("https://www.ndbc.noaa.gov/data/realtime2/44027.txt"),
     fetchJsonWithRetry("https://waterservices.usgs.gov/nwis/iv/?format=json&sites=01029500&parameterCd=00060,00065"),
@@ -154,11 +182,15 @@ export async function buildPayload() {
     for (const row of parseNdbcRows(txt)) {
       const ts = ndbcTs(row);
       if (!ts) continue;
+      const wdir = Number(row.WDIR);
+      const pres = Number(row.PRES);
       const pairs = [
+        ["wind_direction_deg", wdir, "deg"],
         ["wind_speed_kts", Number(row.WSPD), "kts"],
         ["wind_gust_kts", Number(row.GST), "kts"],
         ["wave_height_ft", Number(row.WVHT) * 3.28084, "ft"],
         ["dominant_period_s", Number(row.DPD), "s"],
+        ["barometric_pressure_hpa", pres, "hPa"],
         ["water_temp_f", (Number(row.WTMP) * 9) / 5 + 32, "F"]
       ];
       for (const [metric, value, unit] of pairs) {
@@ -214,10 +246,15 @@ export async function buildPayload() {
     readings.reduce((best, r) => (r.timestamp_utc > best ? r.timestamp_utc : best), "1970-01-01T00:00:00.000Z") ||
     new Date().toISOString();
   const status = evaluateStatus(readings);
-  const tide = readings
-    .filter((r) => r.metric === "predicted_tide_ft_mllw")
-    .sort((a, b) => Date.parse(a.timestamp_utc) - Date.parse(b.timestamp_utc))
-    .slice(-24);
+  const tide = toChartPoints(readings);
+  const turningPoints = (hilo.predictions || [])
+    .map((d) => {
+      const kind = d.type === "H" ? "peak" : d.type === "L" ? "trough" : null;
+      return { ts: new Date(`${d.t}Z`).toISOString(), value: Number(d.v), kind };
+    })
+    .filter((d) => Boolean(d.kind) && Number.isFinite(d.value))
+    .map((d) => ({ ts: d.ts, value: d.value, kind: d.kind }))
+    .sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
   return {
     location: config,
     generatedAtUtc: new Date().toISOString(),
@@ -237,7 +274,8 @@ export async function buildPayload() {
     keyChart: {
       metric: "predicted_tide_ft_mllw",
       unit: "ft",
-      points: tide.map((r) => ({ ts: r.timestamp_utc, value: r.value })),
+      points: tide,
+      turningPoints,
       nowTs: new Date().toISOString()
     },
     sources: [
