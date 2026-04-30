@@ -306,14 +306,8 @@ async function loadPayload(): Promise<AppPayload> {
     const res = await fetch("/api/data");
     if (!res.ok) throw new Error(`Failed to load app data (${res.status})`);
     const payload = (await res.json()) as AppPayload;
-    // #region agent log
-    fetch("http://127.0.0.1:7880/ingest/15016d89-948c-4052-8cdb-ef26db9d1a03",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"f3ef61"},body:JSON.stringify({sessionId:"f3ef61",runId:"initial",hypothesisId:"H1",location:"src/main.ts:136",message:"loadPayload received /api/data response",data:{status:res.status,hasLocation:!!payload?.location,hasSeo:!!payload?.location?.seo,topLevelKeys:payload&&typeof payload==="object"?Object.keys(payload).slice(0,10):[]},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return payload;
   } catch (error) {
-    // #region agent log
-    fetch("http://127.0.0.1:7880/ingest/15016d89-948c-4052-8cdb-ef26db9d1a03",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"f3ef61"},body:JSON.stringify({sessionId:"f3ef61",runId:"initial",hypothesisId:"H4",location:"src/main.ts:141",message:"loadPayload fell back to browser pipeline",data:{isDev:import.meta.env.DEV,errorMessage:error instanceof Error?error.message:String(error)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     // Local Vite dev does not serve Vercel API routes.
     if (!import.meta.env.DEV) throw error;
     const payload = await runPipeline();
@@ -340,9 +334,6 @@ function registerServiceWorker(): void {
 function render(payload: AppPayload): void {
   const root = document.querySelector<HTMLDivElement>("#app");
   if (!root) return;
-  // #region agent log
-  fetch("http://127.0.0.1:7880/ingest/15016d89-948c-4052-8cdb-ef26db9d1a03",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"f3ef61"},body:JSON.stringify({sessionId:"f3ef61",runId:"initial",hypothesisId:"H3",location:"src/main.ts:171",message:"render invoked",data:{hasLocation:!!payload?.location,hasSeo:!!payload?.location?.seo,hasRuleResult:!!payload?.ruleResult,isStale:!!payload?.isStale},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   applySeo(payload);
   const allTurningPoints = payload.keyChart.turningPoints?.length
     ? payload.keyChart.turningPoints
