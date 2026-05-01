@@ -404,6 +404,7 @@ function render(payload: AppPayload): void {
       </section>
       <footer class="footer">
         <a href="${payload.location.contact_url}" target="_blank" rel="noreferrer">Need a custom data app for your marina, outfitter, or municipality? Let’s talk.</a>
+        <p class="footer-sponsor"><a class="sponsor-link" href="https://github.com/sponsors/downeasternman" target="_blank" rel="noreferrer">Sponsor</a></p>
       </footer>
     </main>
   `;

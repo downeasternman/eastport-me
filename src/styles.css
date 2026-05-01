@@ -164,6 +164,27 @@ details summary {
   padding: 10px 0;
   font-size: 0.95rem;
 }
+.footer-sponsor {
+  margin: 0.65rem 0 0;
+  text-align: center;
+}
+.footer .sponsor-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.footer .sponsor-link:hover {
+  color: var(--text);
+  border-color: #cbd5e1;
+}
 
 @media (max-width: 375px) {
   .support-grid { grid-template-columns: 1fr; }
